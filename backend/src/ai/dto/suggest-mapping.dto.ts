@@ -1,5 +1,5 @@
 import { IsNotEmpty, IsObject, IsString } from 'class-validator';
-import { Masters } from '../../../../types';
+import { Masters } from '../../types';
 
 export class SuggestMappingDto {
   @IsString()

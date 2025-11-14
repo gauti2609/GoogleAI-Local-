@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { GoogleGenAI, Type } from '@google/genai';
-import { Masters, MappingSuggestion } from '../../../../types';
+import { Masters, MappingSuggestion } from '../types';
 
 @Injectable()
 export class AiService {
