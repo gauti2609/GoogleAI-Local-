@@ -154,6 +154,21 @@ docker-compose logs db
 docker-compose ps db
 ```
 
+### API container becomes unhealthy
+If the API container shows as "unhealthy" or exits during startup:
+```bash
+# Check the API logs for errors
+docker-compose -f docker-compose.prod.yml logs api
+
+# Common causes:
+# 1. Database migrations taking too long
+# 2. Missing or invalid environment variables
+# 3. Database connection failures
+
+# The API has a 90-second startup grace period before health checks count
+# This allows time for migrations and application initialization
+```
+
 ### Frontend can't connect to API
 - Ensure all containers are running: `docker-compose ps`
 - Check API logs: `docker-compose logs api`
