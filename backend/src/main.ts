@@ -11,8 +11,8 @@ async function bootstrap() {
   // Enable validation pipes
   app.useGlobalPipes(new ValidationPipe());
   
-  // Listen on port 3000
-  await app.listen(3000);
+  // Listen on port 3000, bind to 0.0.0.0 to be accessible in Docker
+  await app.listen(3000, '0.0.0.0');
   console.log(`Application is running on: ${await app.getUrl()}`);
 }
 
