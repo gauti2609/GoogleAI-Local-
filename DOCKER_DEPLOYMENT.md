@@ -193,18 +193,60 @@ ports:
   - "NEW_PORT:5432"  # For db (change 5432)
 ```
 
+### Switching between Development and Production
+
+Both `docker-compose.yml` (development) and `docker-compose.prod.yml` (production) can coexist without naming conflicts. The containers are automatically named based on your project directory name.
+
+To switch from development to production:
+```bash
+# Stop development environment
+docker-compose down
+
+# Start production environment
+docker-compose -f docker-compose.prod.yml up --build -d
+```
+
+To run both environments simultaneously, you can use different project names:
+```bash
+# Development with custom project name
+docker-compose -p myapp-dev up -d
+
+# Production with custom project name
+docker-compose -p myapp-prod -f docker-compose.prod.yml up -d
+```
+
 ## Data Persistence
 
 Application data is stored in a Docker volume named `postgres_data`. This ensures your data persists even if containers are stopped or removed.
 
-To backup your data:
+### Container Names
+
+Docker Compose automatically generates container names based on the project directory name. For example, if your project directory is `GoogleAI-Local--main`, containers will be named:
+- `googleai-local--main-db-1`
+- `googleai-local--main-api-1`
+- `googleai-local--main-frontend-1`
+
+You can find the exact container names by running:
 ```bash
-docker exec finautomate_db pg_dump -U user finautomatedb > backup.sql
+docker-compose ps
+```
+
+### Database Backup and Restore
+
+To backup your data (replace `<db_container_name>` with the actual container name from `docker-compose ps`):
+```bash
+docker exec <db_container_name> pg_dump -U user finautomatedb > backup.sql
+
+# Example:
+# docker exec googleai-local--main-db-1 pg_dump -U user finautomatedb > backup.sql
 ```
 
 To restore from backup:
 ```bash
-docker exec -i finautomate_db psql -U user finautomatedb < backup.sql
+docker exec -i <db_container_name> psql -U user finautomatedb < backup.sql
+
+# Example:
+# docker exec -i googleai-local--main-db-1 psql -U user finautomatedb < backup.sql
 ```
 
 ## Production Recommendations

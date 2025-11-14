@@ -1,7 +1,6 @@
 services:
   db:
     image: postgres:15
-    container_name: finautomate_db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-user}
@@ -16,7 +15,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: finautomate_api
     restart: unless-stopped
     depends_on:
       - db
@@ -34,7 +32,6 @@ services:
     build:
       context: .
       dockerfile: frontend.Dockerfile
-    container_name: finautomate_frontend
     restart: unless-stopped
     depends_on:
       - api
