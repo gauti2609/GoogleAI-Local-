@@ -22,6 +22,9 @@ RUN npm run build
 # Production stage
 FROM node:20-alpine
 
+# Install wget for healthcheck
+RUN apk add --no-cache wget
+
 WORKDIR /usr/src/app
 
 # Copy package files
@@ -34,8 +37,8 @@ RUN npm ci --only=production && npm install -g prisma
 COPY --from=builder /usr/src/app/dist ./dist
 COPY --from=builder /usr/src/app/node_modules/.prisma ./node_modules/.prisma
 
-# Copy Prisma schema and migrations
-COPY prisma ./prisma
+# Copy Prisma schema and migrations from builder to ensure consistency
+COPY --from=builder /usr/src/app/prisma ./prisma
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh ./
