@@ -1,6 +1,33 @@
 # Docker Configuration Fix - Summary
 
-## Problem Statement
+## Latest Fix (Nov 2025): Healthcheck Startup Period
+
+### Problem Statement
+After the initial Docker configuration was completed, the containers built successfully but the API container became unhealthy during startup:
+```
+✔ Container finautomate_db     Healthy     21.6s
+✘ Container finautomate_api    Error       23.4s
+dependency failed to start: container finautomate_api is unhealthy
+```
+
+**Root Cause**: 
+- The healthcheck configuration lacked a `start_period` parameter
+- Health checks began immediately when the container started
+- The application needed time for database migrations, Prisma generation, and NestJS initialization
+- Early health check failures marked the container as unhealthy before it could fully start
+
+### Solution Implemented
+✅ **Added `start_period` to healthchecks in docker-compose.prod.yml**
+   - API container: `start_period: 90s` - Allows time for migrations and app initialization
+   - Frontend container: `start_period: 10s` - Nginx starts quickly but needs brief grace period
+   - Health checks still run during start_period but don't count towards container health status
+   - After start_period expires, standard healthcheck behavior applies (30s interval, 3 retries)
+
+**Impact**: Containers now have adequate time to initialize before being marked as healthy/unhealthy, preventing false failures during startup.
+
+---
+
+## Original Problem Statement (Previous Fix)
 The repository indicated Phase X (Deployment Preparation) was complete, but when trying to run `docker-compose up --build -d`, the build failed with the error:
 ```
 target api: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory
