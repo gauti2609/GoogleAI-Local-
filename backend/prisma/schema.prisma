@@ -1,0 +1,30 @@
+// Prisma schema for FinAutomate application
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  entities  FinancialEntity[]
+}
+
+model FinancialEntity {
+  id         String   @id @default(uuid())
+  name       String
+  entityType String
+  data       Json     @default("{}")
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
