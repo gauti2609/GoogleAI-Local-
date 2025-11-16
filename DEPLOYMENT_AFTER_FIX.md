@@ -102,11 +102,15 @@ Open browser: http://localhost:8080
    docker-compose logs db | tail -20
    ```
    Should see: "database system is ready to accept connections"
+   
+   **Note for Windows PowerShell users:** Use `docker-compose logs db | Select-Object -Last 20` instead
 
 3. **Check environment variables:**
    ```bash
    docker-compose exec api env | grep DATABASE_URL
    ```
+   
+   **Note for Windows PowerShell users:** Use `docker-compose exec api env | Select-String DATABASE_URL` instead
 
 4. **Rebuild from scratch:**
    ```bash
