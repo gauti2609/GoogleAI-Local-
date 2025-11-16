@@ -54,7 +54,7 @@ export const MainApp: React.FC<MainAppProps> = ({ entity, onBack, onLogout, toke
         }
     };
     fetchData();
-  }, [entity.id, token, setAllData]);
+  }, [entity.id, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   const handleImport = (data: Omit<TrialBalanceItem, 'id' | 'isMapped' | 'majorHeadCode' | 'minorHeadCode' | 'groupingCode'>[]) => {
