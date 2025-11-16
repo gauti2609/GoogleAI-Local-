@@ -36,8 +36,10 @@ View your app in AI Studio: https://ai.studio/apps/drive/1Az3bxumQr9ZZ2-yfxoNUW2
 3. Access the application at: **http://localhost:8080**
 
 For detailed instructions, troubleshooting, and architecture information, see:
-- **[DOCKER_FIX_DETAILED.md](DOCKER_FIX_DETAILED.md)** - Latest Docker deployment fixes (line endings & healthcheck)
+- **[OPENSSL_FIX.md](OPENSSL_FIX.md)** - ⚠️ **LATEST FIX** - OpenSSL dependency resolution for Prisma
+- **[DEPLOYMENT_AFTER_FIX.md](DEPLOYMENT_AFTER_FIX.md)** - Quick deployment guide after OpenSSL fix
+- **[DOCKER_FIX_DETAILED.md](DOCKER_FIX_DETAILED.md)** - Docker deployment fixes (line endings & healthcheck)
 - **[POSTGRES_SETUP.md](POSTGRES_SETUP.md)** - PostgreSQL setup and troubleshooting guide
 - **[ACCESSING_APPLICATION.md](ACCESSING_APPLICATION.md)** - How to access and troubleshoot the application
 - **[DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md)** - Complete deployment guide
-- **[MIGRATION_FIX_SUMMARY.md](MIGRATION_FIX_SUMMARY.md)** - Recent migration fix details
+- **[MIGRATION_FIX_SUMMARY.md](MIGRATION_FIX_SUMMARY.md)** - Migration fix details

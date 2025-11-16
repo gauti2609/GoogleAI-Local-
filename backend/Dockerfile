@@ -1,5 +1,8 @@
 # Backend Dockerfile for NestJS API
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
+
+# Install OpenSSL for Prisma compatibility
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /usr/src/app
@@ -20,10 +23,10 @@ RUN if [ -f "prisma/schema.prisma" ]; then npx prisma generate; fi
 RUN npm run build
 
 # Production stage
-FROM node:20-alpine
+FROM node:20-slim
 
-# Install wget for healthcheck
-RUN apk add --no-cache wget
+# Install OpenSSL for Prisma and wget for healthcheck
+RUN apt-get update -y && apt-get install -y openssl wget && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
 
