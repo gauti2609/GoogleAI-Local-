@@ -83,12 +83,13 @@ export const deleteEntity = (token: string, entityId: string): Promise<null> => 
 export const getMappingSuggestion = async (
   token: string,
   ledgerName: string,
+  closingBalance: number,
   masters: Masters,
 ): Promise<MappingSuggestion | null> => {
   try {
     const suggestion = await fetchWithAuth(`${API_URL}/ai/suggest-mapping`, {
       method: 'POST',
-      body: JSON.stringify({ ledgerName, masters }),
+      body: JSON.stringify({ ledgerName, closingBalance, masters }),
     }, token);
 
     if (suggestion && suggestion.majorHeadCode && suggestion.minorHeadCode && suggestion.groupingCode) {
@@ -99,5 +100,33 @@ export const getMappingSuggestion = async (
     console.error('Error fetching mapping suggestion from backend:', error);
     alert('Failed to get AI suggestion. Please check your network connection.');
     return null;
+  }
+};
+
+export const getBulkMappingSuggestions = async (
+  token: string,
+  ledgers: { ledgerName: string; closingBalance: number }[],
+  masters: Masters,
+  onProgress?: (current: number, total: number) => void,
+): Promise<{ ledgerName: string; suggestion: MappingSuggestion | null }[]> => {
+  try {
+    const results: { ledgerName: string; suggestion: MappingSuggestion | null }[] = [];
+    
+    for (let i = 0; i < ledgers.length; i++) {
+      if (onProgress) {
+        onProgress(i + 1, ledgers.length);
+      }
+      
+      const suggestion = await getMappingSuggestion(token, ledgers[i].ledgerName, ledgers[i].closingBalance, masters);
+      results.push({
+        ledgerName: ledgers[i].ledgerName,
+        suggestion,
+      });
+    }
+    
+    return results;
+  } catch (error) {
+    console.error('Error fetching bulk mapping suggestions:', error);
+    throw error;
   }
 };

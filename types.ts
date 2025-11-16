@@ -21,6 +21,7 @@ export interface TrialBalanceItem {
   majorHeadCode: string | null;
   minorHeadCode: string | null;
   groupingCode: string | null;
+  lineItemCode: string | null; // Sub-grouping within a schedule/note
 }
 
 export interface MajorHead {
@@ -40,16 +41,24 @@ export interface Grouping {
   minorHeadCode: string;
 }
 
+export interface LineItem {
+  code: string;
+  name: string;
+  groupingCode: string;
+}
+
 export interface Masters {
   majorHeads: MajorHead[];
   minorHeads: MinorHead[];
   groupings: Grouping[];
+  lineItems: LineItem[];
 }
 
 export interface MappingSuggestion {
     majorHeadCode: string;
     minorHeadCode: string;
     groupingCode: string;
+    lineItemCode: string;
     confidence: number;
     reasoning: string;
 }

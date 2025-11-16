@@ -6,6 +6,7 @@ import { TrialBalanceItem, Masters } from '../types.ts';
 interface MappedLedgersTableProps {
   ledgers: TrialBalanceItem[];
   masters: Masters;
+  onSelectLedger: (id: string) => void;
 }
 
 const formatCurrency = (num: number) => {
@@ -16,11 +17,16 @@ const formatCurrency = (num: number) => {
   }).format(num);
 };
 
-export const MappedLedgersTable: React.FC<MappedLedgersTableProps> = ({ ledgers, masters }) => {
+export const MappedLedgersTable: React.FC<MappedLedgersTableProps> = ({ ledgers, masters, onSelectLedger }) => {
 
     const getMappingPath = (item: TrialBalanceItem) => {
         if (!item.isMapped) return 'N/A';
         const grouping = masters.groupings.find(g => g.code === item.groupingCode);
+        const lineItem = item.lineItemCode ? masters.lineItems.find(li => li.code === item.lineItemCode) : null;
+        
+        if (lineItem) {
+            return `${grouping?.name || 'Invalid'} > ${lineItem.name}`;
+        }
         return grouping ? grouping.name : 'Invalid Mapping';
     };
 
@@ -38,9 +44,13 @@ export const MappedLedgersTable: React.FC<MappedLedgersTableProps> = ({ ledgers,
                     </thead>
                     <tbody className="divide-y divide-gray-700">
                         {ledgers.length > 0 ? ledgers.map(item => (
-                            <tr key={item.id} className="hover:bg-gray-700/30">
+                            <tr 
+                                key={item.id} 
+                                className="hover:bg-gray-700/30 cursor-pointer"
+                                onClick={() => onSelectLedger(item.id)}
+                            >
                                 <td className="p-2">{item.ledger}</td>
-                                <td className="p-2 text-gray-400">{getMappingPath(item)}</td>
+                                <td className="p-2 text-gray-400 text-xs">{getMappingPath(item)}</td>
                                 <td className="p-2 text-right font-mono">{formatCurrency(item.closingCy)}</td>
                             </tr>
                         )) : (

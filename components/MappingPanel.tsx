@@ -1,35 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import { TrialBalanceItem, Masters, MappingSuggestion } from '../types.ts';
 import * as apiService from '../services/apiService.ts';
-import { WandIcon, CheckCircleIcon } from './icons.tsx';
+import { WandIcon, CheckCircleIcon, TrashIcon } from './icons.tsx';
 
 interface MappingPanelProps {
   ledger: TrialBalanceItem | undefined;
   masters: Masters;
-  onMapLedger: (ledgerId: string, mapping: { majorHeadCode: string; minorHeadCode: string; groupingCode: string }) => void;
+  onMapLedger: (ledgerId: string, mapping: { majorHeadCode: string; minorHeadCode: string; groupingCode: string; lineItemCode: string }) => void;
+  onUnmapLedger: (ledgerId: string) => void;
   token: string;
 }
 
-export const MappingPanel: React.FC<MappingPanelProps> = ({ ledger, masters, onMapLedger, token }) => {
+export const MappingPanel: React.FC<MappingPanelProps> = ({ ledger, masters, onMapLedger, onUnmapLedger, token }) => {
   const [majorHead, setMajorHead] = useState('');
   const [minorHead, setMinorHead] = useState('');
   const [grouping, setGrouping] = useState('');
+  const [lineItem, setLineItem] = useState('');
   const [isLoadingSuggestion, setIsLoadingSuggestion] = useState(false);
   const [suggestion, setSuggestion] = useState<MappingSuggestion | null>(null);
 
   useEffect(() => {
-    // Reset form when ledger changes
-    setMajorHead('');
-    setMinorHead('');
-    setGrouping('');
-    setSuggestion(null);
+    // Load existing mapping if ledger is already mapped, otherwise reset form
+    if (ledger?.isMapped && ledger.majorHeadCode && ledger.minorHeadCode && ledger.groupingCode) {
+      setMajorHead(ledger.majorHeadCode);
+      setMinorHead(ledger.minorHeadCode);
+      setGrouping(ledger.groupingCode);
+      setLineItem(ledger.lineItemCode || '');
+      setSuggestion(null);
+    } else {
+      setMajorHead('');
+      setMinorHead('');
+      setGrouping('');
+      setLineItem('');
+      setSuggestion(null);
+    }
   }, [ledger]);
   
   const handleGenerateSuggestion = async () => {
     if (!ledger) return;
     setIsLoadingSuggestion(true);
     setSuggestion(null);
-    const result = await apiService.getMappingSuggestion(token, ledger.ledger, masters);
+    const result = await apiService.getMappingSuggestion(token, ledger.ledger, ledger.closingCy, masters);
     if (result) {
         setSuggestion(result);
     }
@@ -45,12 +56,25 @@ export const MappingPanel: React.FC<MappingPanelProps> = ({ ledger, masters, onM
         const suggestedGrouping = masters.groupings.find(g => g.code === suggestion.groupingCode);
         if (suggestedGrouping?.minorHeadCode === suggestion.minorHeadCode) {
             setGrouping(suggestion.groupingCode);
+            // Set line item if suggested
+            if (suggestion.lineItemCode) {
+              const suggestedLineItem = masters.lineItems.find(li => li.code === suggestion.lineItemCode);
+              if (suggestedLineItem?.groupingCode === suggestion.groupingCode) {
+                setLineItem(suggestion.lineItemCode);
+              } else {
+                setLineItem('');
+              }
+            } else {
+              setLineItem('');
+            }
         } else {
              setGrouping('');
+             setLineItem('');
         }
       } else {
         setMinorHead('');
         setGrouping('');
+        setLineItem('');
       }
     }
   };
@@ -61,7 +85,14 @@ export const MappingPanel: React.FC<MappingPanelProps> = ({ ledger, masters, onM
         majorHeadCode: majorHead,
         minorHeadCode: minorHead,
         groupingCode: grouping,
+        lineItemCode: lineItem || '',
       });
+    }
+  };
+  
+  const handleUnmap = () => {
+    if (ledger && ledger.isMapped) {
+      onUnmapLedger(ledger.id);
     }
   };
 
@@ -69,18 +100,26 @@ export const MappingPanel: React.FC<MappingPanelProps> = ({ ledger, masters, onM
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-4">
         <h3 className="text-lg font-semibold text-gray-300">No Ledger Selected</h3>
-        <p className="text-sm text-gray-500 mt-1">Select a ledger from the "To Be Mapped" list to begin.</p>
+        <p className="text-sm text-gray-500 mt-1">Select a ledger from either table to begin mapping or editing.</p>
       </div>
     );
   }
   
   const availableMinorHeads = masters.minorHeads.filter(mh => mh.majorHeadCode === majorHead);
   const availableGroupings = masters.groupings.filter(g => g.minorHeadCode === minorHead);
+  const availableLineItems = masters.lineItems.filter(li => li.groupingCode === grouping);
+  
+  // Determine balance nature for display
+  const balanceNature = ledger.closingCy >= 0 ? 'Dr' : 'Cr';
+  const balanceColor = ledger.closingCy >= 0 ? 'text-green-400' : 'text-red-400';
 
   return (
     <div className="p-4 flex flex-col h-full">
-      <h2 className="text-xl font-bold text-white mb-1">Map Ledger</h2>
-      <p className="text-lg text-brand-blue-light font-semibold mb-4 truncate" title={ledger.ledger}>{ledger.ledger}</p>
+      <h2 className="text-xl font-bold text-white mb-1">{ledger.isMapped ? 'Edit Mapping' : 'Map Ledger'}</h2>
+      <p className="text-lg text-brand-blue-light font-semibold mb-1 truncate" title={ledger.ledger}>{ledger.ledger}</p>
+      <p className={`text-xs ${balanceColor} mb-4`}>
+        Balance: {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Math.abs(ledger.closingCy))} ({balanceNature})
+      </p>
 
       {/* AI Suggestion Section */}
       <div className="mb-6">
@@ -98,6 +137,7 @@ export const MappingPanel: React.FC<MappingPanelProps> = ({ ledger, masters, onM
             <p className="text-xs text-gray-400 mt-1 italic">"{suggestion.reasoning}"</p>
             <div className="text-sm mt-2 text-gray-300">
                 {masters.majorHeads.find(m=>m.code === suggestion.majorHeadCode)?.name} &gt; {masters.minorHeads.find(m=>m.code === suggestion.minorHeadCode)?.name} &gt; {masters.groupings.find(m=>m.code === suggestion.groupingCode)?.name}
+                {suggestion.lineItemCode && ` > ${masters.lineItems.find(li=>li.code === suggestion.lineItemCode)?.name}`}
             </div>
             <button onClick={handleApplySuggestion} className="text-sm text-brand-blue-light hover:underline mt-2">Apply Suggestion</button>
           </div>
@@ -105,40 +145,58 @@ export const MappingPanel: React.FC<MappingPanelProps> = ({ ledger, masters, onM
       </div>
 
       {/* Manual Mapping Section */}
-      <div className="space-y-4 flex-1">
+      <div className="space-y-4 flex-1 overflow-y-auto">
         <div>
           <label className="block text-sm font-medium text-gray-400">Major Head</label>
-          <select value={majorHead} onChange={e => { setMajorHead(e.target.value); setMinorHead(''); setGrouping(''); }} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white disabled:bg-gray-800 disabled:cursor-not-allowed">
+          <select value={majorHead} onChange={e => { setMajorHead(e.target.value); setMinorHead(''); setGrouping(''); setLineItem(''); }} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white disabled:bg-gray-800 disabled:cursor-not-allowed">
             <option value="">Select Major Head</option>
             {masters.majorHeads.map(mh => <option key={mh.code} value={mh.code}>{mh.name}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-400">Minor Head</label>
-          <select value={minorHead} onChange={e => { setMinorHead(e.target.value); setGrouping(''); }} disabled={!majorHead} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white disabled:bg-gray-800 disabled:cursor-not-allowed">
+          <select value={minorHead} onChange={e => { setMinorHead(e.target.value); setGrouping(''); setLineItem(''); }} disabled={!majorHead} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white disabled:bg-gray-800 disabled:cursor-not-allowed">
             <option value="">Select Minor Head</option>
             {availableMinorHeads.map(mh => <option key={mh.code} value={mh.code}>{mh.name}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-400">Grouping</label>
-          <select value={grouping} onChange={e => setGrouping(e.target.value)} disabled={!minorHead} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white disabled:bg-gray-800 disabled:cursor-not-allowed">
+          <select value={grouping} onChange={e => { setGrouping(e.target.value); setLineItem(''); }} disabled={!minorHead} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white disabled:bg-gray-800 disabled:cursor-not-allowed">
             <option value="">Select Grouping</option>
             {availableGroupings.map(g => <option key={g.code} value={g.code}>{g.name}</option>)}
           </select>
         </div>
+        {availableLineItems.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-400">Line Item (Optional)</label>
+            <select value={lineItem} onChange={e => setLineItem(e.target.value)} disabled={!grouping} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white disabled:bg-gray-800 disabled:cursor-not-allowed">
+              <option value="">No Line Item (Direct Mapping)</option>
+              {availableLineItems.map(li => <option key={li.code} value={li.code}>{li.name}</option>)}
+            </select>
+          </div>
+        )}
       </div>
       
-      {/* Action Button */}
-      <div className="mt-auto pt-4">
+      {/* Action Buttons */}
+      <div className="mt-auto pt-4 space-y-2">
         <button
           onClick={handleMap}
           disabled={!majorHead || !minorHead || !grouping}
           className="w-full flex items-center justify-center bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold py-2.5 px-4 rounded-md transition-colors"
         >
           <CheckCircleIcon className="w-5 h-5 mr-2" />
-          Confirm Mapping
+          {ledger.isMapped ? 'Update Mapping' : 'Confirm Mapping'}
         </button>
+        {ledger.isMapped && (
+          <button
+            onClick={handleUnmap}
+            className="w-full flex items-center justify-center bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md transition-colors"
+          >
+            <TrashIcon className="w-5 h-5 mr-2" />
+            Remove Mapping
+          </button>
+        )}
       </div>
     </div>
   );

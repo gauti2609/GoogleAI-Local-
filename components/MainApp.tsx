@@ -57,7 +57,7 @@ export const MainApp: React.FC<MainAppProps> = ({ entity, onBack, onLogout, toke
   }, [entity.id, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
-  const handleImport = (data: Omit<TrialBalanceItem, 'id' | 'isMapped' | 'majorHeadCode' | 'minorHeadCode' | 'groupingCode'>[]) => {
+  const handleImport = (data: Omit<TrialBalanceItem, 'id' | 'isMapped' | 'majorHeadCode' | 'minorHeadCode' | 'groupingCode' | 'lineItemCode'>[]) => {
     if (!allData) return;
     const newData: TrialBalanceItem[] = data.map(item => ({
       ...item,
@@ -66,6 +66,7 @@ export const MainApp: React.FC<MainAppProps> = ({ entity, onBack, onLogout, toke
       majorHeadCode: null,
       minorHeadCode: null,
       groupingCode: null,
+      lineItemCode: null,
     }));
     setAllData({ ...allData, trialBalanceData: newData });
     setActivePage('mapping');

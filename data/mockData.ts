@@ -64,6 +64,40 @@ export const mockMasters: Masters = {
     { code: 'C.20.10', name: 'Prior Period Items', minorHeadCode: 'C.20'},
     { code: 'C.20.11', name: 'Partners\' Remuneration', minorHeadCode: 'C.20' },
   ],
+  lineItems: [
+    // Revenue from Operations line items
+    { code: 'C.10.01.001', name: 'Sale of Products', groupingCode: 'C.10.01' },
+    { code: 'C.10.01.002', name: 'Sale of Services', groupingCode: 'C.10.01' },
+    { code: 'C.10.01.003', name: 'Other Operating Revenues', groupingCode: 'C.10.01' },
+    
+    // Other Income line items
+    { code: 'C.10.02.001', name: 'Interest Income', groupingCode: 'C.10.02' },
+    { code: 'C.10.02.002', name: 'Dividend Income', groupingCode: 'C.10.02' },
+    { code: 'C.10.02.003', name: 'Profit on Sale of Investments', groupingCode: 'C.10.02' },
+    { code: 'C.10.02.004', name: 'Miscellaneous Income', groupingCode: 'C.10.02' },
+    
+    // Other Expenses line items
+    { code: 'C.20.07.001', name: 'Rent', groupingCode: 'C.20.07' },
+    { code: 'C.20.07.002', name: 'Repairs and Maintenance', groupingCode: 'C.20.07' },
+    { code: 'C.20.07.003', name: 'Legal and Professional Fees', groupingCode: 'C.20.07' },
+    { code: 'C.20.07.004', name: 'Commission Expenses', groupingCode: 'C.20.07' },
+    { code: 'C.20.07.005', name: 'Insurance', groupingCode: 'C.20.07' },
+    { code: 'C.20.07.006', name: 'Rates and Taxes', groupingCode: 'C.20.07' },
+    { code: 'C.20.07.007', name: 'Advertisement and Publicity', groupingCode: 'C.20.07' },
+    { code: 'C.20.07.008', name: 'Travelling and Conveyance', groupingCode: 'C.20.07' },
+    { code: 'C.20.07.009', name: 'Telephone and Communication', groupingCode: 'C.20.07' },
+    { code: 'C.20.07.010', name: 'Printing and Stationery', groupingCode: 'C.20.07' },
+    { code: 'C.20.07.011', name: 'Power and Fuel', groupingCode: 'C.20.07' },
+    { code: 'C.20.07.012', name: 'Bad Debts', groupingCode: 'C.20.07' },
+    { code: 'C.20.07.013', name: 'Provision for Doubtful Debts', groupingCode: 'C.20.07' },
+    { code: 'C.20.07.014', name: 'Bank Charges', groupingCode: 'C.20.07' },
+    { code: 'C.20.07.015', name: 'Miscellaneous Expenses', groupingCode: 'C.20.07' },
+    
+    // Finance Costs line items
+    { code: 'C.20.05.001', name: 'Interest on Borrowings', groupingCode: 'C.20.05' },
+    { code: 'C.20.05.002', name: 'Interest on Trade Payables', groupingCode: 'C.20.05' },
+    { code: 'C.20.05.003', name: 'Other Borrowing Costs', groupingCode: 'C.20.05' },
+  ],
 };
 
 export const initialScheduleData: ScheduleData = {
