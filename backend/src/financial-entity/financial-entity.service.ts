@@ -33,6 +33,13 @@ export class FinancialEntityService {
     return entity;
   }
 
+  async findOneData(id: string, userId: string) {
+    const entity = await this.findOne(id, userId);
+    // Return just the data field for the GET endpoint
+    // The data field contains the AllData structure (trialBalanceData, masters, scheduleData)
+    return entity.data;
+  }
+
   async update(id: string, userId: string, data: any) {
     await this.findOne(id, userId); // Check ownership
     return this.prisma.financialEntity.update({

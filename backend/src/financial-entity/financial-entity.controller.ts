@@ -39,7 +39,7 @@ export class FinancialEntityController {
 
   @Get(':id')
   findOne(@Request() req, @Param('id') id: string) {
-    return this.financialEntityService.findOne(id, req.user.userId);
+    return this.financialEntityService.findOneData(id, req.user.userId);
   }
 
   @Put(':id')
