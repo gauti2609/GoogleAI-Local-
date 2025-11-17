@@ -25,9 +25,9 @@ export function autoMapLedger(
   const keywords = detectLedgerKeywords(ledgerName);
 
   // First try to match with groupings (most specific level)
-  const groupingMatch = fuzzyMatchLedger(ledgerName, masters.groupings, 0.65);
+  const groupingMatch = fuzzyMatchLedger(ledgerName, masters.groupings, 0.50);
   
-  if (groupingMatch && groupingMatch.confidence >= 0.75) {
+  if (groupingMatch && groupingMatch.confidence >= 0.60) {
     const grouping = groupingMatch.item;
     const minorHead = masters.minorHeads.find(mh => mh.code === grouping.minorHeadCode);
     const majorHead = minorHead ? masters.majorHeads.find(mh => mh.code === minorHead.majorHeadCode) : null;
@@ -36,7 +36,7 @@ export function autoMapLedger(
       // Try to find a matching line item
       const lineItems = masters.lineItems.filter(li => li.groupingCode === grouping.code);
       const lineItemMatch = lineItems.length > 0 
-        ? fuzzyMatchLedger(ledgerName, lineItems, 0.7)
+        ? fuzzyMatchLedger(ledgerName, lineItems, 0.55)
         : null;
 
       return {
@@ -52,9 +52,9 @@ export function autoMapLedger(
   }
 
   // If grouping match didn't work, try minor head matching
-  const minorHeadMatch = fuzzyMatchLedger(ledgerName, masters.minorHeads, 0.65);
+  const minorHeadMatch = fuzzyMatchLedger(ledgerName, masters.minorHeads, 0.50);
   
-  if (minorHeadMatch && minorHeadMatch.confidence >= 0.70) {
+  if (minorHeadMatch && minorHeadMatch.confidence >= 0.55) {
     const minorHead = minorHeadMatch.item;
     const majorHead = masters.majorHeads.find(mh => mh.code === minorHead.majorHeadCode);
     
@@ -64,7 +64,7 @@ export function autoMapLedger(
       
       if (groupings.length > 0) {
         // Try to find best grouping match
-        const groupingMatch = fuzzyMatchLedger(ledgerName, groupings, 0.6);
+        const groupingMatch = fuzzyMatchLedger(ledgerName, groupings, 0.50);
         const selectedGrouping = groupingMatch ? groupingMatch.item : groupings[0];
 
         return {
@@ -89,7 +89,7 @@ export function autoMapLedger(
 
     if (keywordMatchedGroupings.length > 0) {
       // Find the best match among keyword-filtered groupings
-      const groupingMatch = fuzzyMatchLedger(ledgerName, keywordMatchedGroupings, 0.5);
+      const groupingMatch = fuzzyMatchLedger(ledgerName, keywordMatchedGroupings, 0.40);
       
       if (groupingMatch) {
         const grouping = groupingMatch.item;
@@ -123,7 +123,7 @@ export function autoMapLedger(
 export function batchAutoMapLedgers(
   ledgers: Pick<TrialBalanceItem, 'ledger' | 'closingCy'>[],
   masters: Masters,
-  minConfidence: number = 0.75
+  minConfidence: number = 0.55
 ): Array<{
   ledgerName: string;
   mapping: {

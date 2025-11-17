@@ -98,7 +98,7 @@ Reasoning: "Fuzzy matched with 82% similarity"
 Ledger Name: "Rent Expense - Office Space"
 Keywords Detected: ["expense"]
 Best Match: "Rent" (under "Other expenses" grouping)
-Similarity: 0.65 + 0.10 (keyword bonus) = 0.75
+Similarity: 0.50 + 0.10 (keyword bonus) = 0.60
 Result: ✅ Auto-mapped to "Other expenses > Rent"
 Reasoning: "Keyword-based match (detected: expense)"
 ```
@@ -108,10 +108,10 @@ Reasoning: "Keyword-based match (detected: expense)"
 ```
 Scenario: Importing 100 ledgers
 - AI maps 60 ledgers (≥85% confidence)
-- Fuzzy logic maps 25 more (≥70% similarity)
-- 15 require manual review (below threshold)
+- Fuzzy logic maps 30 more (≥55% similarity)
+- 10 require manual review (below threshold)
 
-User sees: "85 of 100 ledgers auto-mapped (60 by AI, 25 by fuzzy logic)"
+User sees: "90 of 100 ledgers auto-mapped (60 by AI, 30 by fuzzy logic)"
 ```
 
 ## Configuration
@@ -119,8 +119,8 @@ User sees: "85 of 100 ledgers auto-mapped (60 by AI, 25 by fuzzy logic)"
 ### Thresholds
 
 - **AI Confidence**: 0.85 (85%) - for auto-mapping during AI suggestions
-- **Fuzzy Similarity**: 0.70 (70%) - for auto-mapping using fuzzy logic
-- **Fallback Threshold**: 0.55 (55%) - for bulk operations to be more inclusive
+- **Fuzzy Similarity**: 0.55 (55%) - for auto-mapping using fuzzy logic (lowered from 70% to capture more mappings)
+- **Internal Thresholds**: Various thresholds between 0.40-0.60 for different matching strategies
 
 ### Adjustable Parameters
 
@@ -128,18 +128,18 @@ You can adjust thresholds in the code:
 
 ```typescript
 // In ImportModal.tsx
-const fuzzyResults = batchAutoMapLedgers(data, masters, 0.70); // Change threshold here
+const fuzzyResults = batchAutoMapLedgers(data, masters, 0.55); // Change threshold here
 
 // In TrialBalanceTable.tsx
-const fuzzyResults = batchAutoMapLedgers(ledgers, masters, 0.70); // Change threshold here
+const fuzzyResults = batchAutoMapLedgers(ledgers, masters, 0.55); // Change threshold here
 ```
 
 ## Benefits
 
-1. **Reduced Manual Work**: Up to 80-90% of ledgers can be auto-mapped
+1. **Reduced Manual Work**: Up to 85-95% of ledgers can be auto-mapped with lower thresholds
 2. **Works Offline**: No dependency on AI service or API keys
 3. **Fast Processing**: Processes 100 ledgers in under 1 second
-4. **Accurate**: Keyword detection reduces false positives
+4. **More Inclusive**: Lower thresholds (55%) capture more potential matches
 5. **Transparent**: Users see exactly how each ledger was mapped
 
 ## Performance
@@ -187,11 +187,11 @@ Possible improvements:
 
 ### Issue: Too Many False Positives
 
-**Solution**: Increase threshold from 0.70 to 0.75 or 0.80
+**Solution**: Increase threshold from 0.55 to 0.65 or 0.70
 
 ### Issue: Too Few Matches
 
-**Solution**: Decrease threshold from 0.70 to 0.65 or 0.60
+**Solution**: Decrease threshold from 0.55 to 0.45 or 0.50 (already quite low)
 
 ### Issue: Wrong Category Mappings
 

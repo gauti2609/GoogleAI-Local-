@@ -99,7 +99,7 @@ export const TrialBalanceTable: React.FC<TrialBalanceTableProps> = ({
                     const fuzzyResults = batchAutoMapLedgers(
                         unmappedLedgers.map(l => ({ ledger: l.ledger, closingCy: l.closingCy })),
                         masters,
-                        0.70
+                        0.55
                     );
                     
                     setTrialBalanceData(prev => {
@@ -127,7 +127,7 @@ export const TrialBalanceTable: React.FC<TrialBalanceTableProps> = ({
                 alert(
                     `Bulk mapping complete!\n` +
                     `${autoMappedCount} ledgers mapped by AI (≥55% confidence)\n` +
-                    `${fuzzyMappedCount} ledgers mapped by fuzzy logic (≥70% similarity)\n` +
+                    `${fuzzyMappedCount} ledgers mapped by fuzzy logic (≥55% similarity)\n` +
                     `${selectedLedgers.length - totalMapped} require manual review`
                 );
             } catch (aiError: any) {
@@ -137,7 +137,7 @@ export const TrialBalanceTable: React.FC<TrialBalanceTableProps> = ({
                 const fuzzyResults = batchAutoMapLedgers(
                     selectedLedgers.map(l => ({ ledger: l.ledger, closingCy: l.closingCy })),
                     masters,
-                    0.70
+                    0.55
                 );
                 
                 setTrialBalanceData(prev => {
