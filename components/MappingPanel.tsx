@@ -4,14 +4,14 @@ import * as apiService from '../services/apiService.ts';
 import { WandIcon, CheckCircleIcon, TrashIcon } from './icons.tsx';
 
 interface MappingPanelProps {
-  ledger: TrialBalanceItem | undefined;
+  ledgers: TrialBalanceItem[];
   masters: Masters;
-  onMapLedger: (ledgerId: string, mapping: { majorHeadCode: string; minorHeadCode: string; groupingCode: string; lineItemCode: string }) => void;
-  onUnmapLedger: (ledgerId: string) => void;
+  onMapLedger: (ledgerIds: string[], mapping: { majorHeadCode: string; minorHeadCode: string; groupingCode: string; lineItemCode: string }) => void;
+  onUnmapLedger: (ledgerIds: string[]) => void;
   token: string;
 }
 
-export const MappingPanel: React.FC<MappingPanelProps> = ({ ledger, masters, onMapLedger, onUnmapLedger, token }) => {
+export const MappingPanel: React.FC<MappingPanelProps> = ({ ledgers, masters, onMapLedger, onUnmapLedger, token }) => {
   const [majorHead, setMajorHead] = useState('');
   const [minorHead, setMinorHead] = useState('');
   const [grouping, setGrouping] = useState('');
@@ -19,8 +19,11 @@ export const MappingPanel: React.FC<MappingPanelProps> = ({ ledger, masters, onM
   const [isLoadingSuggestion, setIsLoadingSuggestion] = useState(false);
   const [suggestion, setSuggestion] = useState<MappingSuggestion | null>(null);
 
+  const ledger = ledgers.length === 1 ? ledgers[0] : null;
+  const isMultiSelect = ledgers.length > 1;
+
   useEffect(() => {
-    // Load existing mapping if ledger is already mapped, otherwise reset form
+    // Load existing mapping if single ledger is already mapped, otherwise reset form
     if (ledger?.isMapped && ledger.majorHeadCode && ledger.minorHeadCode && ledger.groupingCode) {
       setMajorHead(ledger.majorHeadCode);
       setMinorHead(ledger.minorHeadCode);
@@ -80,8 +83,8 @@ export const MappingPanel: React.FC<MappingPanelProps> = ({ ledger, masters, onM
   };
   
   const handleMap = () => {
-    if (ledger && majorHead && minorHead && grouping) {
-      onMapLedger(ledger.id, {
+    if (ledgers.length > 0 && majorHead && minorHead && grouping) {
+      onMapLedger(ledgers.map(l => l.id), {
         majorHeadCode: majorHead,
         minorHeadCode: minorHead,
         groupingCode: grouping,
@@ -91,12 +94,12 @@ export const MappingPanel: React.FC<MappingPanelProps> = ({ ledger, masters, onM
   };
   
   const handleUnmap = () => {
-    if (ledger && ledger.isMapped) {
-      onUnmapLedger(ledger.id);
+    if (ledgers.length > 0 && ledgers.some(l => l.isMapped)) {
+      onUnmapLedger(ledgers.map(l => l.id));
     }
   };
 
-  if (!ledger) {
+  if (ledgers.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-4">
         <h3 className="text-lg font-semibold text-gray-300">No Ledger Selected</h3>
@@ -109,40 +112,56 @@ export const MappingPanel: React.FC<MappingPanelProps> = ({ ledger, masters, onM
   const availableGroupings = masters.groupings.filter(g => g.minorHeadCode === minorHead);
   const availableLineItems = masters.lineItems.filter(li => li.groupingCode === grouping);
   
-  // Determine balance nature for display
-  const balanceNature = ledger.closingCy >= 0 ? 'Dr' : 'Cr';
-  const balanceColor = ledger.closingCy >= 0 ? 'text-green-400' : 'text-red-400';
+  // Title and display for multi-select or single ledger
+  const title = isMultiSelect ? `Map Multiple Ledgers (${ledgers.length})` : (ledger?.isMapped ? 'Edit Mapping' : 'Map Ledger');
+  const anyMapped = ledgers.some(l => l.isMapped);
 
   return (
     <div className="p-4 flex flex-col h-full">
-      <h2 className="text-xl font-bold text-white mb-1">{ledger.isMapped ? 'Edit Mapping' : 'Map Ledger'}</h2>
-      <p className="text-lg text-brand-blue-light font-semibold mb-1 truncate" title={ledger.ledger}>{ledger.ledger}</p>
-      <p className={`text-xs ${balanceColor} mb-4`}>
-        Balance: {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Math.abs(ledger.closingCy))} ({balanceNature})
-      </p>
-
-      {/* AI Suggestion Section */}
-      <div className="mb-6">
-        <button
-          onClick={handleGenerateSuggestion}
-          disabled={isLoadingSuggestion}
-          className="w-full flex items-center justify-center bg-brand-blue hover:bg-brand-blue-dark disabled:bg-gray-600 text-white font-bold py-2 px-4 rounded-md transition-colors"
-        >
-          <WandIcon className="w-5 h-5 mr-2" />
-          {isLoadingSuggestion ? 'Generating...' : 'Get AI Suggestion'}
-        </button>
-        {suggestion && (
-          <div className="mt-4 p-3 bg-gray-700/50 rounded-lg border border-gray-600">
-            <h4 className="font-semibold text-gray-200 text-sm">AI Suggestion (Confidence: { (suggestion.confidence * 100).toFixed(0) }%)</h4>
-            <p className="text-xs text-gray-400 mt-1 italic">"{suggestion.reasoning}"</p>
-            <div className="text-sm mt-2 text-gray-300">
-                {masters.majorHeads.find(m=>m.code === suggestion.majorHeadCode)?.name} &gt; {masters.minorHeads.find(m=>m.code === suggestion.minorHeadCode)?.name} &gt; {masters.groupings.find(m=>m.code === suggestion.groupingCode)?.name}
-                {suggestion.lineItemCode && ` > ${masters.lineItems.find(li=>li.code === suggestion.lineItemCode)?.name}`}
-            </div>
-            <button onClick={handleApplySuggestion} className="text-sm text-brand-blue-light hover:underline mt-2">Apply Suggestion</button>
+      <h2 className="text-xl font-bold text-white mb-1">{title}</h2>
+      {!isMultiSelect && ledger && (
+        <>
+          <p className="text-lg text-brand-blue-light font-semibold mb-1 truncate" title={ledger.ledger}>{ledger.ledger}</p>
+          <p className={`text-xs ${ledger.closingCy >= 0 ? 'text-green-400' : 'text-red-400'} mb-4`}>
+            Balance: {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Math.abs(ledger.closingCy))} ({ledger.closingCy >= 0 ? 'Dr' : 'Cr'})
+          </p>
+        </>
+      )}
+      {isMultiSelect && (
+        <div className="mb-4">
+          <p className="text-sm text-gray-400">Selected ledgers:</p>
+          <div className="mt-1 max-h-20 overflow-y-auto bg-gray-700/50 rounded p-2">
+            {ledgers.map(l => (
+              <p key={l.id} className="text-xs text-gray-300 truncate" title={l.ledger}>{l.ledger}</p>
+            ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* AI Suggestion Section - only for single ledger */}
+      {!isMultiSelect && ledger && (
+        <div className="mb-6">
+          <button
+            onClick={handleGenerateSuggestion}
+            disabled={isLoadingSuggestion}
+            className="w-full flex items-center justify-center bg-brand-blue hover:bg-brand-blue-dark disabled:bg-gray-600 text-white font-bold py-2 px-4 rounded-md transition-colors"
+          >
+            <WandIcon className="w-5 h-5 mr-2" />
+            {isLoadingSuggestion ? 'Generating...' : 'Get AI Suggestion'}
+          </button>
+          {suggestion && (
+            <div className="mt-4 p-3 bg-gray-700/50 rounded-lg border border-gray-600">
+              <h4 className="font-semibold text-gray-200 text-sm">AI Suggestion (Confidence: { (suggestion.confidence * 100).toFixed(0) }%)</h4>
+              <p className="text-xs text-gray-400 mt-1 italic">"{suggestion.reasoning}"</p>
+              <div className="text-sm mt-2 text-gray-300">
+                  {masters.majorHeads.find(m=>m.code === suggestion.majorHeadCode)?.name} &gt; {masters.minorHeads.find(m=>m.code === suggestion.minorHeadCode)?.name} &gt; {masters.groupings.find(m=>m.code === suggestion.groupingCode)?.name}
+                  {suggestion.lineItemCode && ` > ${masters.lineItems.find(li=>li.code === suggestion.lineItemCode)?.name}`}
+              </div>
+              <button onClick={handleApplySuggestion} className="text-sm text-brand-blue-light hover:underline mt-2">Apply Suggestion</button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Manual Mapping Section */}
       <div className="space-y-4 flex-1 overflow-y-auto">
@@ -167,15 +186,13 @@ export const MappingPanel: React.FC<MappingPanelProps> = ({ ledger, masters, onM
             {availableGroupings.map(g => <option key={g.code} value={g.code}>{g.name}</option>)}
           </select>
         </div>
-        {availableLineItems.length > 0 && (
-          <div>
-            <label className="block text-sm font-medium text-gray-400">Line Item (Optional)</label>
-            <select value={lineItem} onChange={e => setLineItem(e.target.value)} disabled={!grouping} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white disabled:bg-gray-800 disabled:cursor-not-allowed">
-              <option value="">No Line Item (Direct Mapping)</option>
-              {availableLineItems.map(li => <option key={li.code} value={li.code}>{li.name}</option>)}
-            </select>
-          </div>
-        )}
+        <div>
+          <label className="block text-sm font-medium text-gray-400">Line Item (Optional)</label>
+          <select value={lineItem} onChange={e => setLineItem(e.target.value)} disabled={!grouping} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white disabled:bg-gray-800 disabled:cursor-not-allowed">
+            <option value="">No Line Item (Direct Mapping)</option>
+            {availableLineItems.map(li => <option key={li.code} value={li.code}>{li.name}</option>)}
+          </select>
+        </div>
       </div>
       
       {/* Action Buttons */}
@@ -186,15 +203,15 @@ export const MappingPanel: React.FC<MappingPanelProps> = ({ ledger, masters, onM
           className="w-full flex items-center justify-center bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold py-2.5 px-4 rounded-md transition-colors"
         >
           <CheckCircleIcon className="w-5 h-5 mr-2" />
-          {ledger.isMapped ? 'Update Mapping' : 'Confirm Mapping'}
+          {anyMapped ? `Update Mapping${isMultiSelect ? 's' : ''}` : `Confirm Mapping${isMultiSelect ? 's' : ''}`}
         </button>
-        {ledger.isMapped && (
+        {anyMapped && (
           <button
             onClick={handleUnmap}
             className="w-full flex items-center justify-center bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md transition-colors"
           >
             <TrashIcon className="w-5 h-5 mr-2" />
-            Remove Mapping
+            Remove Mapping{isMultiSelect ? 's' : ''}
           </button>
         )}
       </div>

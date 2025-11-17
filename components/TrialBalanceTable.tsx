@@ -38,8 +38,14 @@ export const TrialBalanceTable: React.FC<TrialBalanceTableProps> = ({
 }) => {
     const [isBulkMapping, setIsBulkMapping] = useState(false);
     const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
+    const [searchQuery, setSearchQuery] = useState('');
     
-    const allSelected = ledgers.length > 0 && ledgers.every(l => selectedLedgerIds.has(l.id));
+    // Filter ledgers based on search query
+    const filteredLedgers = ledgers.filter(ledger => 
+        ledger.ledger.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    
+    const allSelected = filteredLedgers.length > 0 && filteredLedgers.every(l => selectedLedgerIds.has(l.id));
     
     const handleBulkAIMapping = async () => {
         const selectedLedgers = ledgers.filter(l => selectedLedgerIds.has(l.id));
@@ -59,12 +65,12 @@ export const TrialBalanceTable: React.FC<TrialBalanceTableProps> = ({
                 (current, total) => setBulkProgress({ current, total })
             );
             
-            // Apply high-confidence mappings (>= 0.85)
+            // Apply high-confidence mappings (>= 0.55)
             let autoMappedCount = 0;
             setTrialBalanceData(prev => {
                 return prev.map(item => {
                     const result = results.find(r => r.ledgerName === item.ledger);
-                    if (result && result.suggestion && result.suggestion.confidence >= 0.85) {
+                    if (result && result.suggestion && result.suggestion.confidence >= 0.55) {
                         autoMappedCount++;
                         return {
                             ...item,
@@ -107,6 +113,16 @@ export const TrialBalanceTable: React.FC<TrialBalanceTableProps> = ({
                     </button>
                 )}
             </div>
+            {/* Search input */}
+            <div className="mb-2">
+                <input
+                    type="text"
+                    placeholder="Search ledgers..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                />
+            </div>
             <div className="flex-1 overflow-y-auto">
                  <table className="min-w-full text-sm">
                     <thead className="sticky top-0 bg-gray-800">
@@ -125,7 +141,7 @@ export const TrialBalanceTable: React.FC<TrialBalanceTableProps> = ({
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-700">
-                        {ledgers.length > 0 ? ledgers.map(item => (
+                        {filteredLedgers.length > 0 ? filteredLedgers.map(item => (
                             <tr
                                 key={item.id}
                                 className={`cursor-pointer transition-colors ${
@@ -149,7 +165,7 @@ export const TrialBalanceTable: React.FC<TrialBalanceTableProps> = ({
                         )) : (
                              <tr>
                                 <td colSpan={4} className="p-4 text-center text-gray-500">
-                                    No unmapped ledgers. All items have been mapped.
+                                    {searchQuery ? 'No ledgers match your search.' : 'No unmapped ledgers. All items have been mapped.'}
                                 </td>
                             </tr>
                         )}
