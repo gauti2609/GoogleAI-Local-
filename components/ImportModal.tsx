@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { TrialBalanceItem, Masters } from '../types.ts';
 import { CloseIcon, UploadIcon } from './icons.tsx';
 import * as apiService from '../services/apiService.ts';
+import { batchAutoMapLedgers } from '../utils/autoMapping.ts';
 
 interface ImportModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [autoMapEnabled, setAutoMapEnabled] = useState(false);
+  const [useFuzzyLogic, setUseFuzzyLogic] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
 
@@ -73,46 +75,136 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
           setProgress({ current: 0, total: data.length });
           
           try {
-            // Get AI suggestions for all ledgers
-            const results = await apiService.getBulkMappingSuggestions(
-              token,
-              data.map(d => ({ ledgerName: d.ledger, closingBalance: d.closingCy })),
-              masters,
-              (current, total) => setProgress({ current, total })
-            );
+            let mappedData: TrialBalanceItem[];
             
-            // Map the data with AI suggestions (auto-map if confidence >= 0.85)
-            const mappedData: TrialBalanceItem[] = data.map(item => {
-              const result = results.find(r => r.ledgerName === item.ledger);
-              const suggestion = result?.suggestion;
+            // Try AI suggestions first if available
+            try {
+              const results = await apiService.getBulkMappingSuggestions(
+                token,
+                data.map(d => ({ ledgerName: d.ledger, closingBalance: d.closingCy })),
+                masters,
+                (current, total) => setProgress({ current, total })
+              );
               
-              if (suggestion && suggestion.confidence >= 0.85) {
-                return {
-                  ...item,
-                  id: uuidv4(),
-                  isMapped: true,
-                  majorHeadCode: suggestion.majorHeadCode,
-                  minorHeadCode: suggestion.minorHeadCode,
-                  groupingCode: suggestion.groupingCode,
-                  lineItemCode: suggestion.lineItemCode || null,
-                };
+              // Map the data with AI suggestions (auto-map if confidence >= 0.85)
+              mappedData = data.map(item => {
+                const result = results.find(r => r.ledgerName === item.ledger);
+                const suggestion = result?.suggestion;
+                
+                if (suggestion && suggestion.confidence >= 0.85) {
+                  return {
+                    ...item,
+                    id: uuidv4(),
+                    isMapped: true,
+                    majorHeadCode: suggestion.majorHeadCode,
+                    minorHeadCode: suggestion.minorHeadCode,
+                    groupingCode: suggestion.groupingCode,
+                    lineItemCode: suggestion.lineItemCode || null,
+                  };
+                } else {
+                  return {
+                    ...item,
+                    id: uuidv4(),
+                    isMapped: false,
+                    majorHeadCode: null,
+                    minorHeadCode: null,
+                    groupingCode: null,
+                    lineItemCode: null,
+                  };
+                }
+              });
+              
+              const aiMappedCount = mappedData.filter(d => d.isMapped).length;
+              
+              // Apply fuzzy logic to unmapped items if enabled
+              if (useFuzzyLogic && aiMappedCount < data.length) {
+                const unmappedItems = mappedData.filter(d => !d.isMapped);
+                const fuzzyResults = batchAutoMapLedgers(
+                  unmappedItems.map(d => ({ ledger: d.ledger, closingCy: d.closingCy })),
+                  masters,
+                  0.70 // Lower threshold for fuzzy matching
+                );
+                
+                let fuzzyMappedCount = 0;
+                mappedData = mappedData.map(item => {
+                  if (item.isMapped) return item;
+                  
+                  const fuzzyResult = fuzzyResults.find(r => r.ledgerName === item.ledger);
+                  if (fuzzyResult?.mapping) {
+                    fuzzyMappedCount++;
+                    return {
+                      ...item,
+                      isMapped: true,
+                      majorHeadCode: fuzzyResult.mapping.majorHeadCode,
+                      minorHeadCode: fuzzyResult.mapping.minorHeadCode,
+                      groupingCode: fuzzyResult.mapping.groupingCode,
+                      lineItemCode: fuzzyResult.mapping.lineItemCode || null,
+                    };
+                  }
+                  return item;
+                });
+                
+                setTrialBalanceData(mappedData);
+                const totalMapped = aiMappedCount + fuzzyMappedCount;
+                alert(
+                  `Import with auto-mapping complete!\n` +
+                  `${aiMappedCount} ledgers mapped by AI (≥85% confidence)\n` +
+                  `${fuzzyMappedCount} ledgers mapped by fuzzy logic (≥70% similarity)\n` +
+                  `${data.length - totalMapped} ledgers require manual mapping`
+                );
               } else {
-                return {
-                  ...item,
-                  id: uuidv4(),
-                  isMapped: false,
-                  majorHeadCode: null,
-                  minorHeadCode: null,
-                  groupingCode: null,
-                  lineItemCode: null,
-                };
+                setTrialBalanceData(mappedData);
+                alert(`Import with AI auto-mapping complete!\n${aiMappedCount} of ${data.length} ledgers auto-mapped with high confidence.`);
               }
-            });
-            
-            const autoMappedCount = mappedData.filter(d => d.isMapped).length;
-            setTrialBalanceData(mappedData);
-            alert(`Import with auto-mapping complete!\n${autoMappedCount} of ${data.length} ledgers auto-mapped with high confidence.`);
-            onClose();
+              
+              onClose();
+            } catch (aiError: any) {
+              // If AI fails, fallback to fuzzy logic only
+              console.warn('AI mapping failed, using fuzzy logic fallback:', aiError);
+              
+              if (useFuzzyLogic) {
+                const fuzzyResults = batchAutoMapLedgers(
+                  data.map(d => ({ ledger: d.ledger, closingCy: d.closingCy })),
+                  masters,
+                  0.70
+                );
+                
+                mappedData = data.map(item => {
+                  const fuzzyResult = fuzzyResults.find(r => r.ledgerName === item.ledger);
+                  if (fuzzyResult?.mapping) {
+                    return {
+                      ...item,
+                      id: uuidv4(),
+                      isMapped: true,
+                      majorHeadCode: fuzzyResult.mapping.majorHeadCode,
+                      minorHeadCode: fuzzyResult.mapping.minorHeadCode,
+                      groupingCode: fuzzyResult.mapping.groupingCode,
+                      lineItemCode: fuzzyResult.mapping.lineItemCode || null,
+                    };
+                  }
+                  return {
+                    ...item,
+                    id: uuidv4(),
+                    isMapped: false,
+                    majorHeadCode: null,
+                    minorHeadCode: null,
+                    groupingCode: null,
+                    lineItemCode: null,
+                  };
+                });
+                
+                const fuzzyMappedCount = mappedData.filter(d => d.isMapped).length;
+                setTrialBalanceData(mappedData);
+                alert(
+                  `Import with fuzzy logic complete!\n` +
+                  `${fuzzyMappedCount} of ${data.length} ledgers auto-mapped using similarity matching.\n` +
+                  `AI suggestions were not available.`
+                );
+                onClose();
+              } else {
+                throw new Error(`Auto-mapping failed: ${aiError.message}. Please try again or import without auto-mapping.`);
+              }
+            }
           } catch (err: any) {
             setError(`Auto-mapping failed: ${err.message}. Importing without mapping.`);
             onImport(data);
@@ -160,7 +252,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
             <p className="text-xs text-gray-500 mt-2">Required columns: 'ledger', 'closingCy'. Optional: 'closingPy'.</p>
           </div>
           
-          <div className="mt-4">
+          <div className="mt-4 space-y-3">
             <label className="flex items-center text-sm text-gray-300">
               <input
                 type="checkbox"
@@ -169,11 +261,24 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
                 disabled={isProcessing}
                 className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-brand-blue focus:ring-brand-blue mr-2"
               />
-              Auto-map ledgers with high confidence (≥85%)
+              Enable auto-mapping during import
             </label>
             <p className="text-xs text-gray-500 mt-1 ml-6">
-              Uses AI to automatically map ledgers during import. Saves time!
+              Automatically map ledgers using AI and fuzzy logic. Saves time!
             </p>
+            
+            {autoMapEnabled && (
+              <label className="flex items-center text-sm text-gray-300 ml-6">
+                <input
+                  type="checkbox"
+                  checked={useFuzzyLogic}
+                  onChange={(e) => setUseFuzzyLogic(e.target.checked)}
+                  disabled={isProcessing}
+                  className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-brand-blue focus:ring-brand-blue mr-2"
+                />
+                Use fuzzy logic as fallback (≥70% similarity)
+              </label>
+            )}
           </div>
           
           {isProcessing && (
