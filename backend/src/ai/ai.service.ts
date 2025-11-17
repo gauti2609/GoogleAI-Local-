@@ -112,6 +112,9 @@ export class AiService {
       return null;
     } catch (error) {
       console.error('Error fetching mapping suggestion from Gemini API:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message, error.stack);
+      }
       return null;
     }
   }
