@@ -12,7 +12,7 @@ import { UploadIcon, CogIcon } from './icons.tsx';
 interface MappingWorkbenchProps {
     allData: AllData;
     setTrialBalanceData: React.Dispatch<React.SetStateAction<TrialBalanceItem[]>>;
-    onImport: (data: Omit<TrialBalanceItem, 'id' | 'isMapped' | 'majorHeadCode' | 'minorHeadCode' | 'groupingCode'>[]) => void;
+    onImport: (data: Omit<TrialBalanceItem, 'id' | 'isMapped' | 'majorHeadCode' | 'minorHeadCode' | 'groupingCode' | 'lineItemCode'>[]) => void;
     masters: Masters;
     setMasters: (masters: Masters) => void;
     token: string;
@@ -21,6 +21,7 @@ interface MappingWorkbenchProps {
 export const MappingWorkbench: React.FC<MappingWorkbenchProps> = ({ allData, setTrialBalanceData, onImport, masters, setMasters, token }) => {
     const { trialBalanceData } = allData;
     const [selectedLedgerId, setSelectedLedgerId] = React.useState<string | null>(null);
+    const [selectedLedgerIds, setSelectedLedgerIds] = React.useState<Set<string>>(new Set());
     const [isImportModalOpen, setImportModalOpen] = React.useState(false);
     const [isMastersModalOpen, setMastersModalOpen] = React.useState(false);
     
@@ -31,13 +32,44 @@ export const MappingWorkbench: React.FC<MappingWorkbenchProps> = ({ allData, set
         setSelectedLedgerId(id);
     };
     
-    const handleMapLedger = (ledgerId: string, mapping: { majorHeadCode: string; minorHeadCode: string; groupingCode: string }) => {
+    const handleToggleSelection = (id: string) => {
+        setSelectedLedgerIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
+            return newSet;
+        });
+    };
+    
+    const handleSelectAll = (checked: boolean) => {
+        if (checked) {
+            setSelectedLedgerIds(new Set(unmappedLedgers.map(l => l.id)));
+        } else {
+            setSelectedLedgerIds(new Set());
+        }
+    };
+    
+    const handleMapLedger = (ledgerId: string, mapping: { majorHeadCode: string; minorHeadCode: string; groupingCode: string; lineItemCode: string }) => {
         setTrialBalanceData(prev => prev.map(item => item.id === ledgerId ? {
             ...item,
             isMapped: true,
             ...mapping,
         } : item));
         setSelectedLedgerId(null); // Deselect to allow auto-selection of next item
+    };
+    
+    const handleUnmapLedger = (ledgerId: string) => {
+        setTrialBalanceData(prev => prev.map(item => item.id === ledgerId ? {
+            ...item,
+            isMapped: false,
+            majorHeadCode: null,
+            minorHeadCode: null,
+            groupingCode: null,
+            lineItemCode: null,
+        } : item));
     };
     
     React.useEffect(() => {
@@ -76,9 +108,18 @@ export const MappingWorkbench: React.FC<MappingWorkbenchProps> = ({ allData, set
                         ledgers={unmappedLedgers}
                         selectedLedgerId={selectedLedgerId}
                         onSelectLedger={handleSelectLedger}
+                        selectedLedgerIds={selectedLedgerIds}
+                        onToggleSelection={handleToggleSelection}
+                        onSelectAll={handleSelectAll}
                         masters={masters}
+                        token={token}
+                        setTrialBalanceData={setTrialBalanceData}
                     />
-                    <MappedLedgersTable ledgers={mappedLedgers} masters={masters} />
+                    <MappedLedgersTable 
+                        ledgers={mappedLedgers} 
+                        masters={masters}
+                        onSelectLedger={handleSelectLedger}
+                    />
                 </div>
                 
                 <div className="lg:col-span-1 bg-gray-800 rounded-lg border border-gray-700 overflow-y-auto">
@@ -86,12 +127,20 @@ export const MappingWorkbench: React.FC<MappingWorkbenchProps> = ({ allData, set
                         ledger={selectedLedger}
                         masters={masters}
                         onMapLedger={handleMapLedger}
+                        onUnmapLedger={handleUnmapLedger}
                         token={token}
                     />
                 </div>
             </div>
 
-            <ImportModal isOpen={isImportModalOpen} onClose={() => setImportModalOpen(false)} onImport={onImport} />
+            <ImportModal 
+                isOpen={isImportModalOpen} 
+                onClose={() => setImportModalOpen(false)} 
+                onImport={onImport}
+                masters={masters}
+                token={token}
+                setTrialBalanceData={setTrialBalanceData}
+            />
             <MastersModal isOpen={isMastersModalOpen} onClose={() => setMastersModalOpen(false)} masters={masters} setMasters={setMasters} />
         </div>
     );

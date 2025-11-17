@@ -10,7 +10,7 @@ export class AiController {
   @UseGuards(JwtAuthGuard)
   @Post('suggest-mapping')
   async suggestMapping(@Body() suggestMappingDto: SuggestMappingDto) {
-    const { ledgerName, masters } = suggestMappingDto;
-    return this.aiService.getMappingSuggestion(ledgerName, masters);
+    const { ledgerName, closingBalance, masters } = suggestMappingDto;
+    return this.aiService.getMappingSuggestion(ledgerName, closingBalance, masters);
   }
 }

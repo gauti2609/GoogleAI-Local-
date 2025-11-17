@@ -1,19 +1,27 @@
 
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
+import { v4 as uuidv4 } from 'uuid';
 // FIX: Add file extensions to fix module resolution errors.
-import { TrialBalanceItem } from '../types.ts';
+import { TrialBalanceItem, Masters } from '../types.ts';
 import { CloseIcon, UploadIcon } from './icons.tsx';
+import * as apiService from '../services/apiService.ts';
 
 interface ImportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (data: Omit<TrialBalanceItem, 'id' | 'isMapped' | 'majorHeadCode' | 'minorHeadCode' | 'groupingCode'>[]) => void;
+  onImport: (data: Omit<TrialBalanceItem, 'id' | 'isMapped' | 'majorHeadCode' | 'minorHeadCode' | 'groupingCode' | 'lineItemCode'>[]) => void;
+  masters: Masters;
+  token: string;
+  setTrialBalanceData: React.Dispatch<React.SetStateAction<TrialBalanceItem[]>>;
 }
 
-export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImport }) => {
+export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImport, masters, token, setTrialBalanceData }) => {
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [autoMapEnabled, setAutoMapEnabled] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -28,14 +36,14 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
     multiple: false,
   });
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (!file) {
       setError('Please select a file to import.');
       return;
     }
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const csvText = event.target?.result as string;
         const rows = csvText.split('\n').filter(row => row.trim() !== '');
@@ -60,10 +68,65 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
           return { ledger, closingCy, closingPy: isNaN(closingPy) ? 0 : closingPy };
         });
 
-        onImport(data);
-        onClose();
+        if (autoMapEnabled) {
+          setIsProcessing(true);
+          setProgress({ current: 0, total: data.length });
+          
+          try {
+            // Get AI suggestions for all ledgers
+            const results = await apiService.getBulkMappingSuggestions(
+              token,
+              data.map(d => ({ ledgerName: d.ledger, closingBalance: d.closingCy })),
+              masters,
+              (current, total) => setProgress({ current, total })
+            );
+            
+            // Map the data with AI suggestions (auto-map if confidence >= 0.85)
+            const mappedData: TrialBalanceItem[] = data.map(item => {
+              const result = results.find(r => r.ledgerName === item.ledger);
+              const suggestion = result?.suggestion;
+              
+              if (suggestion && suggestion.confidence >= 0.85) {
+                return {
+                  ...item,
+                  id: uuidv4(),
+                  isMapped: true,
+                  majorHeadCode: suggestion.majorHeadCode,
+                  minorHeadCode: suggestion.minorHeadCode,
+                  groupingCode: suggestion.groupingCode,
+                  lineItemCode: suggestion.lineItemCode || null,
+                };
+              } else {
+                return {
+                  ...item,
+                  id: uuidv4(),
+                  isMapped: false,
+                  majorHeadCode: null,
+                  minorHeadCode: null,
+                  groupingCode: null,
+                  lineItemCode: null,
+                };
+              }
+            });
+            
+            const autoMappedCount = mappedData.filter(d => d.isMapped).length;
+            setTrialBalanceData(mappedData);
+            alert(`Import with auto-mapping complete!\n${autoMappedCount} of ${data.length} ledgers auto-mapped with high confidence.`);
+            onClose();
+          } catch (err: any) {
+            setError(`Auto-mapping failed: ${err.message}. Importing without mapping.`);
+            onImport(data);
+          } finally {
+            setIsProcessing(false);
+            setProgress({ current: 0, total: 0 });
+          }
+        } else {
+          onImport(data);
+          onClose();
+        }
       } catch (e: any) {
         setError(e.message || 'Failed to parse CSV file.');
+        setIsProcessing(false);
       }
     };
     reader.readAsText(file);
@@ -76,7 +139,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
       <div className="bg-gray-800 rounded-lg shadow-2xl border border-gray-700 w-full max-w-lg">
         <header className="p-4 border-b border-gray-700 flex justify-between items-center">
           <h2 className="text-xl font-semibold text-gray-100">Import Trial Balance</h2>
-          <button onClick={onClose} className="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white transition-colors">
+          <button onClick={onClose} className="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white transition-colors" disabled={isProcessing}>
             <CloseIcon className="w-6 h-6" />
           </button>
         </header>
@@ -85,7 +148,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
             {...getRootProps()}
             className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
               isDragActive ? 'border-brand-blue bg-brand-blue/10' : 'border-gray-600 hover:border-gray-500'
-            }`}
+            } ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}
           >
             <input {...getInputProps()} />
             <UploadIcon className="w-12 h-12 mx-auto text-gray-500 mb-2" />
@@ -96,14 +159,53 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
             )}
             <p className="text-xs text-gray-500 mt-2">Required columns: 'ledger', 'closingCy'. Optional: 'closingPy'.</p>
           </div>
+          
+          <div className="mt-4">
+            <label className="flex items-center text-sm text-gray-300">
+              <input
+                type="checkbox"
+                checked={autoMapEnabled}
+                onChange={(e) => setAutoMapEnabled(e.target.checked)}
+                disabled={isProcessing}
+                className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-brand-blue focus:ring-brand-blue mr-2"
+              />
+              Auto-map ledgers with high confidence (≥85%)
+            </label>
+            <p className="text-xs text-gray-500 mt-1 ml-6">
+              Uses AI to automatically map ledgers during import. Saves time!
+            </p>
+          </div>
+          
+          {isProcessing && (
+            <div className="mt-4 p-3 bg-brand-blue/10 border border-brand-blue/30 rounded-lg">
+              <p className="text-sm text-brand-blue-light">
+                Processing auto-mapping: {progress.current} of {progress.total}...
+              </p>
+              <div className="w-full bg-gray-700 rounded-full h-2 mt-2">
+                <div 
+                  className="bg-brand-blue h-2 rounded-full transition-all"
+                  style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+          
           {error && <p className="text-red-400 text-sm mt-4">{error}</p>}
         </main>
         <footer className="p-4 bg-gray-800/50 border-t border-gray-700 flex justify-end items-center space-x-3">
-          <button onClick={onClose} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md transition-colors text-sm">
+          <button 
+            onClick={onClose} 
+            disabled={isProcessing}
+            className="bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md transition-colors text-sm"
+          >
             Cancel
           </button>
-          <button onClick={handleImport} disabled={!file} className="bg-brand-blue hover:bg-brand-blue-dark disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md transition-colors text-sm">
-            Import Data
+          <button 
+            onClick={handleImport} 
+            disabled={!file || isProcessing} 
+            className="bg-brand-blue hover:bg-brand-blue-dark disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md transition-colors text-sm"
+          >
+            {isProcessing ? 'Processing...' : 'Import Data'}
           </button>
         </footer>
       </div>
