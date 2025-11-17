@@ -22,6 +22,7 @@ export const MappingWorkbench: React.FC<MappingWorkbenchProps> = ({ allData, set
     const { trialBalanceData } = allData;
     const [selectedLedgerId, setSelectedLedgerId] = React.useState<string | null>(null);
     const [selectedLedgerIds, setSelectedLedgerIds] = React.useState<Set<string>>(new Set());
+    const [selectedMappedIds, setSelectedMappedIds] = React.useState<Set<string>>(new Set());
     const [isImportModalOpen, setImportModalOpen] = React.useState(false);
     const [isMastersModalOpen, setMastersModalOpen] = React.useState(false);
     
@@ -30,6 +31,9 @@ export const MappingWorkbench: React.FC<MappingWorkbenchProps> = ({ allData, set
 
     const handleSelectLedger = (id: string) => {
         setSelectedLedgerId(id);
+        // Clear multi-select when selecting individual ledger
+        setSelectedLedgerIds(new Set());
+        setSelectedMappedIds(new Set());
     };
     
     const handleToggleSelection = (id: string) => {
@@ -42,6 +46,20 @@ export const MappingWorkbench: React.FC<MappingWorkbenchProps> = ({ allData, set
             }
             return newSet;
         });
+        setSelectedLedgerId(null); // Clear single selection when multi-selecting
+    };
+    
+    const handleToggleMappedSelection = (id: string) => {
+        setSelectedMappedIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
+            return newSet;
+        });
+        setSelectedLedgerId(null); // Clear single selection when multi-selecting
     };
     
     const handleSelectAll = (checked: boolean) => {
@@ -52,17 +70,27 @@ export const MappingWorkbench: React.FC<MappingWorkbenchProps> = ({ allData, set
         }
     };
     
-    const handleMapLedger = (ledgerId: string, mapping: { majorHeadCode: string; minorHeadCode: string; groupingCode: string; lineItemCode: string }) => {
-        setTrialBalanceData(prev => prev.map(item => item.id === ledgerId ? {
+    const handleSelectAllMapped = (checked: boolean) => {
+        if (checked) {
+            setSelectedMappedIds(new Set(mappedLedgers.map(l => l.id)));
+        } else {
+            setSelectedMappedIds(new Set());
+        }
+    };
+    
+    const handleMapLedger = (ledgerIds: string[], mapping: { majorHeadCode: string; minorHeadCode: string; groupingCode: string; lineItemCode: string }) => {
+        setTrialBalanceData(prev => prev.map(item => ledgerIds.includes(item.id) ? {
             ...item,
             isMapped: true,
             ...mapping,
         } : item));
-        setSelectedLedgerId(null); // Deselect to allow auto-selection of next item
+        setSelectedLedgerId(null);
+        setSelectedLedgerIds(new Set());
+        setSelectedMappedIds(new Set());
     };
     
-    const handleUnmapLedger = (ledgerId: string) => {
-        setTrialBalanceData(prev => prev.map(item => item.id === ledgerId ? {
+    const handleUnmapLedger = (ledgerIds: string[]) => {
+        setTrialBalanceData(prev => prev.map(item => ledgerIds.includes(item.id) ? {
             ...item,
             isMapped: false,
             majorHeadCode: null,
@@ -70,18 +98,33 @@ export const MappingWorkbench: React.FC<MappingWorkbenchProps> = ({ allData, set
             groupingCode: null,
             lineItemCode: null,
         } : item));
+        setSelectedLedgerId(null);
+        setSelectedMappedIds(new Set());
     };
     
     React.useEffect(() => {
       const currentUnmapped = trialBalanceData.filter(item => !item.isMapped);
-      if (currentUnmapped.length > 0 && !currentUnmapped.find(l => l.id === selectedLedgerId)) {
+      if (currentUnmapped.length > 0 && !currentUnmapped.find(l => l.id === selectedLedgerId) && selectedLedgerIds.size === 0 && selectedMappedIds.size === 0) {
         setSelectedLedgerId(currentUnmapped[0].id);
-      } else if (currentUnmapped.length === 0) {
+      } else if (currentUnmapped.length === 0 && selectedLedgerIds.size === 0 && selectedMappedIds.size === 0) {
         setSelectedLedgerId(null);
       }
-    }, [trialBalanceData, selectedLedgerId]);
+    }, [trialBalanceData, selectedLedgerId, selectedLedgerIds, selectedMappedIds]);
 
-    const selectedLedger = trialBalanceData.find(l => l.id === selectedLedgerId);
+    // Get ledgers for mapping panel - either single selected or multiple selected
+    const selectedLedgers = React.useMemo(() => {
+        if (selectedLedgerId) {
+            const ledger = trialBalanceData.find(l => l.id === selectedLedgerId);
+            return ledger ? [ledger] : [];
+        }
+        if (selectedLedgerIds.size > 0) {
+            return trialBalanceData.filter(l => selectedLedgerIds.has(l.id));
+        }
+        if (selectedMappedIds.size > 0) {
+            return trialBalanceData.filter(l => selectedMappedIds.has(l.id));
+        }
+        return [];
+    }, [selectedLedgerId, selectedLedgerIds, selectedMappedIds, trialBalanceData]);
 
     return (
         <div className="p-6 h-full flex flex-col space-y-4">
@@ -119,15 +162,19 @@ export const MappingWorkbench: React.FC<MappingWorkbenchProps> = ({ allData, set
                         ledgers={mappedLedgers} 
                         masters={masters}
                         onSelectLedger={handleSelectLedger}
+                        selectedLedgerIds={selectedMappedIds}
+                        onToggleSelection={handleToggleMappedSelection}
+                        onSelectAll={handleSelectAllMapped}
                     />
                 </div>
                 
                 <div className="lg:col-span-1 bg-gray-800 rounded-lg border border-gray-700 overflow-y-auto">
                     <MappingPanel 
-                        ledger={selectedLedger}
+                        ledgers={selectedLedgers}
                         masters={masters}
                         onMapLedger={handleMapLedger}
                         onUnmapLedger={handleUnmapLedger}
+                        onUpdateMasters={setMasters}
                         token={token}
                     />
                 </div>
