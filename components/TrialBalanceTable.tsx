@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { TrialBalanceItem, Masters } from '../types.ts';
 import * as apiService from '../services/apiService.ts';
 import { WandIcon } from './icons.tsx';
+import { batchAutoMapLedgers } from '../utils/autoMapping.ts';
 
 interface TrialBalanceTableProps {
   ledgers: TrialBalanceItem[];
@@ -58,37 +59,117 @@ export const TrialBalanceTable: React.FC<TrialBalanceTableProps> = ({
         setBulkProgress({ current: 0, total: selectedLedgers.length });
         
         try {
-            const results = await apiService.getBulkMappingSuggestions(
-                token,
-                selectedLedgers.map(l => ({ ledgerName: l.ledger, closingBalance: l.closingCy })),
-                masters,
-                (current, total) => setBulkProgress({ current, total })
-            );
-            
-            // Apply high-confidence mappings (>= 0.55)
             let autoMappedCount = 0;
-            setTrialBalanceData(prev => {
-                return prev.map(item => {
-                    const result = results.find(r => r.ledgerName === item.ledger);
-                    if (result && result.suggestion && result.suggestion.confidence >= 0.55) {
-                        autoMappedCount++;
-                        return {
-                            ...item,
-                            isMapped: true,
-                            majorHeadCode: result.suggestion.majorHeadCode,
-                            minorHeadCode: result.suggestion.minorHeadCode,
-                            groupingCode: result.suggestion.groupingCode,
-                            lineItemCode: result.suggestion.lineItemCode,
-                        };
-                    }
-                    return item;
-                });
-            });
+            let fuzzyMappedCount = 0;
             
-            alert(`Bulk AI mapping complete!\n${autoMappedCount} ledgers auto-mapped with high confidence.\n${selectedLedgers.length - autoMappedCount} require manual review.`);
+            // Try AI mapping first
+            try {
+                const results = await apiService.getBulkMappingSuggestions(
+                    token,
+                    selectedLedgers.map(l => ({ ledgerName: l.ledger, closingBalance: l.closingCy })),
+                    masters,
+                    (current, total) => setBulkProgress({ current, total })
+                );
+                
+                // Apply high-confidence mappings (>= 0.55)
+                const unmappedLedgers: TrialBalanceItem[] = [];
+                setTrialBalanceData(prev => {
+                    return prev.map(item => {
+                        const result = results.find(r => r.ledgerName === item.ledger);
+                        if (result && result.suggestion && result.suggestion.confidence >= 0.55) {
+                            autoMappedCount++;
+                            return {
+                                ...item,
+                                isMapped: true,
+                                majorHeadCode: result.suggestion.majorHeadCode,
+                                minorHeadCode: result.suggestion.minorHeadCode,
+                                groupingCode: result.suggestion.groupingCode,
+                                lineItemCode: result.suggestion.lineItemCode,
+                            };
+                        }
+                        if (selectedLedgerIds.has(item.id) && !item.isMapped) {
+                            unmappedLedgers.push(item);
+                        }
+                        return item;
+                    });
+                });
+                
+                // Apply fuzzy logic to remaining unmapped items
+                if (unmappedLedgers.length > 0) {
+                    const fuzzyResults = batchAutoMapLedgers(
+                        unmappedLedgers.map(l => ({ ledger: l.ledger, closingCy: l.closingCy })),
+                        masters,
+                        0.70
+                    );
+                    
+                    setTrialBalanceData(prev => {
+                        return prev.map(item => {
+                            if (item.isMapped) return item;
+                            
+                            const fuzzyResult = fuzzyResults.find(r => r.ledgerName === item.ledger);
+                            if (fuzzyResult?.mapping) {
+                                fuzzyMappedCount++;
+                                return {
+                                    ...item,
+                                    isMapped: true,
+                                    majorHeadCode: fuzzyResult.mapping.majorHeadCode,
+                                    minorHeadCode: fuzzyResult.mapping.minorHeadCode,
+                                    groupingCode: fuzzyResult.mapping.groupingCode,
+                                    lineItemCode: fuzzyResult.mapping.lineItemCode || '',
+                                };
+                            }
+                            return item;
+                        });
+                    });
+                }
+                
+                const totalMapped = autoMappedCount + fuzzyMappedCount;
+                alert(
+                    `Bulk mapping complete!\n` +
+                    `${autoMappedCount} ledgers mapped by AI (≥55% confidence)\n` +
+                    `${fuzzyMappedCount} ledgers mapped by fuzzy logic (≥70% similarity)\n` +
+                    `${selectedLedgers.length - totalMapped} require manual review`
+                );
+            } catch (aiError: any) {
+                console.warn('AI mapping failed, using fuzzy logic only:', aiError);
+                
+                // Fallback to fuzzy logic only
+                const fuzzyResults = batchAutoMapLedgers(
+                    selectedLedgers.map(l => ({ ledger: l.ledger, closingCy: l.closingCy })),
+                    masters,
+                    0.70
+                );
+                
+                setTrialBalanceData(prev => {
+                    return prev.map(item => {
+                        if (!selectedLedgerIds.has(item.id) || item.isMapped) return item;
+                        
+                        const fuzzyResult = fuzzyResults.find(r => r.ledgerName === item.ledger);
+                        if (fuzzyResult?.mapping) {
+                            fuzzyMappedCount++;
+                            return {
+                                ...item,
+                                isMapped: true,
+                                majorHeadCode: fuzzyResult.mapping.majorHeadCode,
+                                minorHeadCode: fuzzyResult.mapping.minorHeadCode,
+                                groupingCode: fuzzyResult.mapping.groupingCode,
+                                lineItemCode: fuzzyResult.mapping.lineItemCode || '',
+                            };
+                        }
+                        return item;
+                    });
+                });
+                
+                alert(
+                    `Fuzzy logic mapping complete!\n` +
+                    `${fuzzyMappedCount} of ${selectedLedgers.length} ledgers auto-mapped using similarity matching.\n` +
+                    `AI suggestions were not available.`
+                );
+            }
+            
             onSelectAll(false); // Clear selection
         } catch (error: any) {
-            alert(`Error during bulk AI mapping: ${error.message}`);
+            alert(`Error during bulk mapping: ${error.message}`);
         } finally {
             setIsBulkMapping(false);
             setBulkProgress({ current: 0, total: 0 });
@@ -108,7 +189,7 @@ export const TrialBalanceTable: React.FC<TrialBalanceTableProps> = ({
                         <WandIcon className="w-4 h-4 mr-2" />
                         {isBulkMapping 
                             ? `Processing ${bulkProgress.current}/${bulkProgress.total}...` 
-                            : `Get AI Suggestions for Selected (${selectedLedgerIds.size})`
+                            : `Auto-Map Selected (${selectedLedgerIds.size})`
                         }
                     </button>
                 )}

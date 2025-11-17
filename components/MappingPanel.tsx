@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TrialBalanceItem, Masters, MappingSuggestion } from '../types.ts';
 import * as apiService from '../services/apiService.ts';
 import { WandIcon, CheckCircleIcon, TrashIcon } from './icons.tsx';
+import { autoMapLedger } from '../utils/autoMapping.ts';
 
 interface MappingPanelProps {
   ledgers: TrialBalanceItem[];
@@ -46,10 +47,28 @@ export const MappingPanel: React.FC<MappingPanelProps> = ({ ledgers, masters, on
     if (!ledger) return;
     setIsLoadingSuggestion(true);
     setSuggestion(null);
-    const result = await apiService.getMappingSuggestion(token, ledger.ledger, ledger.closingCy, masters);
-    if (result) {
+    
+    try {
+      // Try AI suggestion first
+      const result = await apiService.getMappingSuggestion(token, ledger.ledger, ledger.closingCy, masters);
+      if (result) {
         setSuggestion(result);
+      } else {
+        // Fallback to fuzzy logic if AI doesn't return a result
+        const fuzzyResult = autoMapLedger(ledger.ledger, ledger.closingCy, masters);
+        if (fuzzyResult) {
+          setSuggestion(fuzzyResult);
+        }
+      }
+    } catch (error) {
+      console.warn('AI suggestion failed, trying fuzzy logic:', error);
+      // Fallback to fuzzy logic on error
+      const fuzzyResult = autoMapLedger(ledger.ledger, ledger.closingCy, masters);
+      if (fuzzyResult) {
+        setSuggestion(fuzzyResult);
+      }
     }
+    
     setIsLoadingSuggestion(false);
   };
   
