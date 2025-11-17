@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 // FIX: Add file extensions to fix module resolution errors.
-import { AllData } from '../types.ts';
+import { AllData, Masters } from '../types.ts';
 // FIX: Add file extension to fix module resolution error.
 import { BalanceSheet } from '../components/reports/BalanceSheet.tsx';
 import { ProfitAndLossStatement } from '../components/reports/ProfitAndLossStatement.tsx';
@@ -14,11 +14,12 @@ import { DownloadIcon, PrintIcon } from '../components/icons.tsx';
 
 interface ReportsPageProps {
   allData: AllData;
+  masters: Masters;
 }
 
 type ReportView = 'bs' | 'pl' | 'cf' | 'notes' | 'ratios';
 
-export const ReportsPage: React.FC<ReportsPageProps> = ({ allData }) => {
+export const ReportsPage: React.FC<ReportsPageProps> = ({ allData, masters }) => {
     const [activeView, setActiveView] = useState<ReportView>('bs');
     const { scheduleData } = allData;
     // FIX: Replaced deprecated 'corporateInfo' with 'entityInfo' to align with the updated 'ScheduleData' type definition.
@@ -58,7 +59,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ allData }) => {
                             Print Notes
                         </button>
                     )}
-                    <button onClick={() => exportToExcel(allData)} className="flex items-center bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition-colors text-sm">
+                    <button onClick={() => exportToExcel(allData, masters, scheduleData.entityInfo.companyName || 'Financial_Statements')} className="flex items-center bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition-colors text-sm">
                         <DownloadIcon className="w-4 h-4 mr-2"/>
                         Export to Excel
                     </button>

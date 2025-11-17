@@ -105,7 +105,7 @@ export const MainApp: React.FC<MainAppProps> = ({ entity, onBack, onLogout, toke
       case 'notes':
         return <NotesSelectionPage allData={allData} setScheduleData={setScheduleData}/>;
       case 'reports':
-        return <ReportsPage allData={allData} />;
+        return <ReportsPage allData={allData} masters={allData.masters} />;
       default:
         return <div>Page not found</div>;
     }
