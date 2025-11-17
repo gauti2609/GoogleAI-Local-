@@ -8,16 +8,19 @@ interface MappingPanelProps {
   masters: Masters;
   onMapLedger: (ledgerIds: string[], mapping: { majorHeadCode: string; minorHeadCode: string; groupingCode: string; lineItemCode: string }) => void;
   onUnmapLedger: (ledgerIds: string[]) => void;
+  onUpdateMasters: (masters: Masters) => void;
   token: string;
 }
 
-export const MappingPanel: React.FC<MappingPanelProps> = ({ ledgers, masters, onMapLedger, onUnmapLedger, token }) => {
+export const MappingPanel: React.FC<MappingPanelProps> = ({ ledgers, masters, onMapLedger, onUnmapLedger, onUpdateMasters, token }) => {
   const [majorHead, setMajorHead] = useState('');
   const [minorHead, setMinorHead] = useState('');
   const [grouping, setGrouping] = useState('');
   const [lineItem, setLineItem] = useState('');
   const [isLoadingSuggestion, setIsLoadingSuggestion] = useState(false);
   const [suggestion, setSuggestion] = useState<MappingSuggestion | null>(null);
+  const [showAddLineItem, setShowAddLineItem] = useState(false);
+  const [newLineItemName, setNewLineItemName] = useState('');
 
   const ledger = ledgers.length === 1 ? ledgers[0] : null;
   const isMultiSelect = ledgers.length > 1;
@@ -97,6 +100,34 @@ export const MappingPanel: React.FC<MappingPanelProps> = ({ ledgers, masters, on
     if (ledgers.length > 0 && ledgers.some(l => l.isMapped)) {
       onUnmapLedger(ledgers.map(l => l.id));
     }
+  };
+  
+  const handleAddLineItem = () => {
+    if (!newLineItemName.trim() || !grouping) return;
+    
+    // Generate a code for the new line item
+    const code = `${grouping}_${newLineItemName.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`;
+    
+    // Check if this code already exists
+    if (masters.lineItems.find(li => li.code === code)) {
+      alert('A line item with this name already exists for this grouping.');
+      return;
+    }
+    
+    // Add new line item to masters
+    const updatedMasters = {
+      ...masters,
+      lineItems: [...masters.lineItems, {
+        code,
+        name: newLineItemName.trim(),
+        groupingCode: grouping
+      }]
+    };
+    
+    onUpdateMasters(updatedMasters);
+    setLineItem(code);
+    setNewLineItemName('');
+    setShowAddLineItem(false);
   };
 
   if (ledgers.length === 0) {
@@ -181,7 +212,7 @@ export const MappingPanel: React.FC<MappingPanelProps> = ({ ledgers, masters, on
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-400">Grouping</label>
-          <select value={grouping} onChange={e => { setGrouping(e.target.value); setLineItem(''); }} disabled={!minorHead} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white disabled:bg-gray-800 disabled:cursor-not-allowed">
+          <select value={grouping} onChange={e => { setGrouping(e.target.value); setLineItem(''); setShowAddLineItem(false); }} disabled={!minorHead} className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white disabled:bg-gray-800 disabled:cursor-not-allowed">
             <option value="">Select Grouping</option>
             {availableGroupings.map(g => <option key={g.code} value={g.code}>{g.name}</option>)}
           </select>
@@ -192,6 +223,39 @@ export const MappingPanel: React.FC<MappingPanelProps> = ({ ledgers, masters, on
             <option value="">No Line Item (Direct Mapping)</option>
             {availableLineItems.map(li => <option key={li.code} value={li.code}>{li.name}</option>)}
           </select>
+          {grouping && !showAddLineItem && (
+            <button 
+              onClick={() => setShowAddLineItem(true)}
+              className="mt-2 text-sm text-brand-blue-light hover:underline"
+            >
+              + Add New Line Item
+            </button>
+          )}
+          {showAddLineItem && grouping && (
+            <div className="mt-2 flex gap-2">
+              <input
+                type="text"
+                value={newLineItemName}
+                onChange={e => setNewLineItemName(e.target.value)}
+                placeholder="Enter line item name"
+                className="flex-1 bg-gray-700 border border-gray-600 rounded-md p-2 text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-blue"
+                onKeyPress={e => e.key === 'Enter' && handleAddLineItem()}
+              />
+              <button 
+                onClick={handleAddLineItem}
+                disabled={!newLineItemName.trim()}
+                className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white text-sm px-3 py-1 rounded-md"
+              >
+                Add
+              </button>
+              <button 
+                onClick={() => { setShowAddLineItem(false); setNewLineItemName(''); }}
+                className="bg-gray-600 hover:bg-gray-500 text-white text-sm px-3 py-1 rounded-md"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
       </div>
       

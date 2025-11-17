@@ -174,6 +174,7 @@ export const MappingWorkbench: React.FC<MappingWorkbenchProps> = ({ allData, set
                         masters={masters}
                         onMapLedger={handleMapLedger}
                         onUnmapLedger={handleUnmapLedger}
+                        onUpdateMasters={setMasters}
                         token={token}
                     />
                 </div>
