@@ -66,7 +66,7 @@ import { getEntityLevel, getApplicableNotes } from '../utils/applicabilityUtils.
 type ScheduleView = 'entityInfo' | 'accountingPolicies' | 'shareCapital' | 'otherEquity' | 'partnersFunds' | 'ownersFunds' |'borrowings' | 'otherLongTermLiabilities' | 'provisions' | 'tradePayables' | 'otherCurrentLiabilities' | 'msme' | 'ppe' | 'cwip' | 'intangible' | 'intangibleDev' | 'investments' | 'longTermLoans' | 'longTermReceivables' | 'otherNonCurrentAssets' | 'currentInvestments' | 'inventories' | 'tradeReceivables' | 'cash' | 'shortTermLoans' | 'otherCurrentAssets' | 'revenue' | 'otherIncome' | 'cogs' | 'purchases' | 'changesInInv' | 'employee' | 'finance' | 'otherExpenses' | 'tax' | 'exceptional' | 'eps' | 'relatedParties' | 'contingent' | 'commitments' | 'eventsAfterBS' | 'forex' | 'auditor' | 'regulatory' | 'deferredTax' | 'ratioExplanations' | 'construction' | 'govtGrants' | 'segmentReporting' | 'leases' | 'discontinuingOps' | 'amalgamations';
 
 export const SchedulesPage: React.FC<{ allData: AllData; setScheduleData: React.Dispatch<React.SetStateAction<ScheduleData>> }> = ({ allData, setScheduleData }) => {
-    const [activeView, setActiveView] = useState<ScheduleView | null>(null);
+    const [activeView, setActiveView] = useState<ScheduleView | null>('entityInfo');
     const [isConfirmModalOpen, setConfirmModalOpen] = useState(false);
     
     const { scheduleData } = allData;

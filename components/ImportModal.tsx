@@ -122,7 +122,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
                 const fuzzyResults = batchAutoMapLedgers(
                   unmappedItems.map(d => ({ ledger: d.ledger, closingCy: d.closingCy })),
                   masters,
-                  0.70 // Lower threshold for fuzzy matching
+                  0.55 // Lower threshold for fuzzy matching
                 );
                 
                 let fuzzyMappedCount = 0;
@@ -149,7 +149,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
                 alert(
                   `Import with auto-mapping complete!\n` +
                   `${aiMappedCount} ledgers mapped by AI (≥85% confidence)\n` +
-                  `${fuzzyMappedCount} ledgers mapped by fuzzy logic (≥70% similarity)\n` +
+                  `${fuzzyMappedCount} ledgers mapped by fuzzy logic (≥55% similarity)\n` +
                   `${data.length - totalMapped} ledgers require manual mapping`
                 );
               } else {
@@ -166,7 +166,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
                 const fuzzyResults = batchAutoMapLedgers(
                   data.map(d => ({ ledger: d.ledger, closingCy: d.closingCy })),
                   masters,
-                  0.70
+                  0.55
                 );
                 
                 mappedData = data.map(item => {
@@ -197,7 +197,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, onImp
                 setTrialBalanceData(mappedData);
                 alert(
                   `Import with fuzzy logic complete!\n` +
-                  `${fuzzyMappedCount} of ${data.length} ledgers auto-mapped using similarity matching.\n` +
+                  `${fuzzyMappedCount} of ${data.length} ledgers auto-mapped using similarity matching (≥55%).\n` +
                   `AI suggestions were not available.`
                 );
                 onClose();
